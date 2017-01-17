@@ -110,48 +110,37 @@
 </style>
 <body>
 
-<div class="col-md-2" id="toolsDiv">
-  <p>
-    Num SNPs:
-    <input type="number" min="0" max="500" step="1" value="0" id="snpInput">
-  </p>
-  <p>
-    Min Cluster Size:
-    <input type="number" min="1" max="500" step="1" value="1" id="clusterInput">
-  </p>
-  <p>
+  <div class="col-md-2" id="toolsDiv">
+    <div style="height: 50%">
+      <div style="max-height: 100%; overflow-y: scroll;">
+        <p>Num SNPs: <input type="number" min="0" max="500" step="1" value="0" id="snpInput"></p>
+        <p>Min Cluster Size: <input type="number" min="1" max="500" step="1" value="1" id="clusterInput"></p>
+        <p><input type="text" class="input-medium" value="" id="nodeName"><button id="nodeSearch" type="button" class="btn btn-primary">Search</button></p>
 
-    <input type="text" class="input-medium" value="" id="nodeName">
-    <button id="nodeSearch" type="button" class="btn btn-primary">Search</button>
+        <hr>
 
-  </p>
+        <div id="timeP">Time:</div>
+        <div id="sliderDiv"></div>
 
-  <hr>
-  <p id="timeP">
-    Time:
-  </p>
-  <div id="sliderDiv"></div>
-  <hr>
-  <p>
-    <button id="jitterButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">
-  Jitter Coordinates
-</button>
-  </p>
-  <p>
-    <button id="drawSelectedButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">
-  Map all
-</button>
-  </p>
-  <hr>
-  <label for="attr_select">Select attribute to colour by:</label>
-    <select class="form-control" id="attr_select"><option></option></select>
-</div>
+        <hr>
 
-<div class="col-md-7" id="graphDiv"></div>
-<div class="col-md-3", id="map_table_div",style="overflow: hidden">
-  <p id="mapDiv"></p>
-  <p id="sampleTable", style="max-height: 100px; overflow-y: scroll"></p>
-</div>
+        <p><button id="jitterButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Jitter Coordinates</button></p>
+        <p><button id="drawSelectedButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Map all</button></p>
+        <p><a id="downloadAnchorElem" style="display:none"></a><button id="downloadButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Download</button></p>
+
+        <hr>
+
+        <label for="attr_select">Select attribute to colour by:</label>
+        <select class="form-control" id="attr_select"><option></option></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-7" id="graphDiv"></div>
+  <div class="col-md-3", id="map_table_div",style="overflow: hidden">
+    <p id="mapDiv"></p>
+    <p id="sampleTable", style="max-height: 100px; overflow-y: scroll"></p>
+  </div>
 
 <script>
 var selected_attrib = "dsd"

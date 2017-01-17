@@ -109,52 +109,43 @@
 
 </style>
 <body>
+  <div class="col-md-2" id="toolsDiv" style="padding-right: 0px" >
+    <div style="height: 70%">
+      <div style="max-height: 100%; overflow-y: scroll;">
+        <p>Num SNPs: <input type="number" min="0" max="500" step="1" value="0" id="snpInput"></p>
+        <p>Min Cluster Size: <input type="number" min="1" max="500" step="1" value="1" id="clusterInput"></p>
+        <p><input type="text" class="input-medium" value="" id="nodeName"><button id="nodeSearch" type="button" class="btn btn-primary">Search</button></p>
 
-<div class="col-md-2" id="toolsDiv">
-  <p>
-    Num SNPs:
-    <input type="number" min="0" max="500" step="1" value="0" id="snpInput">
-  </p>
-  <p>
-    Min Cluster Size:
-    <input type="number" min="1" max="500" step="1" value="1" id="clusterInput">
-  </p>
-  <p>
+        <hr>
 
-    <input type="text" class="input-medium" value="" id="nodeName">
-    <button id="nodeSearch" type="button" class="btn btn-primary">Search</button>
+        <div id="timeP">Time:</div>
+        <div id="sliderDiv"></div>
 
-  </p>
+        <hr>
 
-  <hr>
-  <p id="timeP">
-    Time:
-  </p>
-  <div id="sliderDiv"></div>
-  <hr>
-  <p>
-    <button id="jitterButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">
-  Jitter Coordinates
-</button>
-  </p>
-  <p>
-    <button id="drawSelectedButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">
-  Map all
-</button>
-  </p>
-  <hr>
-  <label for="attr_select">Select attribute to colour by:</label>
-    <select class="form-control" id="attr_select"><option></option></select>
-</div>
+        <p><button id="jitterButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Jitter Coordinates</button></p>
+        <p><button id="drawSelectedButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Map all</button></p>
+        <p><a id="downloadAnchorElem" style="display:none"></a><button id="downloadButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Download</button></p>
 
-<div class="col-md-7" id="graphDiv"></div>
-<div class="col-md-3", id="map_table_div",style="overflow: hidden">
-  <p id="mapDiv"></p>
-  <p id="sampleTable", style="max-height: 100px; overflow-y: scroll"></p>
-</div>
+        <hr>
+
+        <label for="attr_select">Select attribute to colour by:</label>
+        <select class="form-control" id="attr_select"><option></option></select>
+      </div>
+    </div>
+    <div style="height: 30%" id="legend_div">
+      <div style="max-height: 100%; overflow-y: scroll;"><hr><strong>Legend:</strong><br></div>
+    </div>
+  </div>
+
+  <div class="col-md-7" id="graphDiv"></div>
+  <div class="col-md-3", id="map_table_div",style="overflow: hidden">
+    <p id="mapDiv"></p>
+    <p id="sampleTable", style="max-height: 100px; overflow-y: scroll"></p>
+  </div>
 
 <script>
-var selected_attrib = "dsd"
+var selected_attrib = "nothing"
 var mapDrawSelected=false;
 var jitterCoordsSwitch = false;
 var snpCutoff = 0;
@@ -212,36 +203,21 @@ d3.json("data.json",function(error,data){
   initMap();
 
   function mapDrawNodes(tempData){
+    mapG.selectAll("*").remove()
+    var mapEdges =  mapG.selectAll(".edge").data(tempData.edges).enter()
+                        .append("line")
+                        .attr("class","edge")
 
-    var tempMapEdges = mapG.selectAll(".edge").data(tempData.edges, function(d){return (d.source+"-"+d.target)})
-    tempMapEdges.exit().remove();
-
-    tempMapEdges.enter()
-                  .insert("line",":first-child")
-                  .attr("class","edge")
-
-    var tempMapNodes = mapG.selectAll(".node").data(tempData.nodes,function(d){return d.id})
-    tempMapNodes.exit().remove();
-
-    tempMapNodes.enter()
-                  .append("path")
-                  .attr("class","node")
-                  .attr("d", d3.symbol()
-                    .type(function(d) { return symbolScale(d.shape); })
-                    .size(function(d) {
-                      if (d.children){ return 2000;}
-                      else {return 500;}
-                    })
-                  )
-                  .style("fill", function(d){
-                    if (d.col){return d.col}
-                    else {return defaultNodeCol}
-                  })
-                  .style("opacity",0.3)
+    var mapNodes =  mapG.selectAll(".node").data(tempData.nodes).enter()
+                        .append("circle")
+                        .attr("class","node")
+                        .attr("r", 10)
+                        .style("fill", function(d){
+                          return d.attributes[selected_attrib] ? colour_obj[selected_attrib][d.attributes[selected_attrib]]:"white"
+                        })
+                        .style("opacity",0.3)
 
 
-    var mapEdges = mapG.selectAll(".edge")
-    var mapNodes = mapG.selectAll(".node")
     map.on("viewreset",updateMap);
 
 
@@ -341,12 +317,18 @@ d3.json("data.json",function(error,data){
 
 
 
-
   function initGraph(tempData){
 
+    d3.select("#downloadButton").on("click",function(){
+      console.log("Downloading")
+      var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tempData));
+      var dlAnchorElem = document.getElementById('downloadAnchorElem');
+      dlAnchorElem.setAttribute("href",     dataStr     );
+      dlAnchorElem.setAttribute("download", "graph.json");
+      dlAnchorElem.click();
+    })
 
     function zoomed() {
-      console.log("zooming")
       transform = d3.event.transform;
       simulationUpdate();
     }
@@ -445,7 +427,7 @@ d3.json("data.json",function(error,data){
 
 
   var sliderMargin = {left:10,right:10,top:10,bottom:10}
-  var toolsDivWidth =  $("#toolsDiv").width();
+  var toolsDivWidth =  $("#toolsDiv").width()-15;
   var sliderWidth = toolsDivWidth - sliderMargin.left - sliderMargin.right;
   var sliderSVG = d3.select("#sliderDiv").append("svg").attr("height",20).attr("width",toolsDivWidth);
 
@@ -711,11 +693,12 @@ d3.json("data.json",function(error,data){
   $("#attr_select").change(function(){
     console.log(this.value)
     selected_attrib = this.value
+    $("#legend_div").html(generate_legend(colour_obj,this.value))
     initData()
   })
 
-  initGraph({"nodes":data.nodes,"edges":data.edges["0"]})
-//  initData()
+//  initGraph({"nodes":data.nodes,"edges":data.edges["0"]})
+  initData()
 
 
 
