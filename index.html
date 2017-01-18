@@ -133,8 +133,8 @@
         <select class="form-control" id="attr_select"><option></option></select>
       </div>
     </div>
-    <div style="height: 30%" id="legend_div">
-      <div style="max-height: 100%; overflow-y: scroll;"><hr><strong>Legend:</strong><br></div>
+    <div style="height: 30%">
+      <div id="legend_div" style="max-height: 100%; overflow-y: scroll;"><hr><strong>Legend:</strong><br></div>
     </div>
   </div>
 
@@ -172,7 +172,6 @@ var div = d3.select("body").append("div")
 
 
 
-var symbolScale = d3.scaleOrdinal().domain(["circle","cross","diamond","square","star","triangle","wye"]).range(d3.symbols)
 
 
 d3.json("data.json",function(error,data){
@@ -192,9 +191,7 @@ d3.json("data.json",function(error,data){
     map = L.map('mapDiv').setView([0,0], 4);
     L.tileLayer("http://{s}.sm.mapstack.stamen.com/(toner-lite,$fff[difference],$fff[@23],$fff[hsl-saturation@20])/{z}/{x}/{y}.png").addTo(map);
 
-    /* Initialize the SVG layer */
     map._initPathRoot()
-    /* We simply pick up the SVG from the map object */
     mapSvg = d3.select("#mapDiv").select("svg"),
     mapG = mapSvg.append("g");
 
@@ -349,12 +346,13 @@ d3.json("data.json",function(error,data){
       node = tempData.nodes[i];
       dx = x - node.x;
       dy = y - node.y;
-
-      if (dx * dx + dy * dy < radius * radius) {
-
+//      console.log("a2+b2=c2")
+//      console.log(dx*dx+"+"+dy*dy+"="+radius*radius)
+      if (dx * dx + dy * dy < radius * radius*2) {
+        console.log(node)
         node.x =  transform.applyX(node.x);
         node.y = transform.applyY(node.y);
-
+        tableCreate("sampleTable",node.id,tempData)
         return node;
       }
     }
@@ -386,10 +384,6 @@ d3.json("data.json",function(error,data){
               .links(tempData.edges);
 
 
-
-    function render(){
-
-    }
 
     function simulationUpdate(){
       context.save();
@@ -503,65 +497,6 @@ d3.json("data.json",function(error,data){
   }
 
 
-  ////////////////////
-  ////// Table //////
-  ////////////////////
-
-  function findEdges(node,links){
-
-    var results = links.filter(function(d){
-      if((d.source.id==node) || (d.target.id==node)){
-        return d;
-      }
-    })
-    return results;
-  }
-
-
-  function tableCreate(edges) {
-    document.getElementById("sampleTable").innerHTML = "";
-    var sampleTable = document.getElementById('sampleTable');
-    var tbl = document.createElement('table');
-    tbl.style.width = '100%';
-    tbl.style["margin-left"] = '0px';
-    tbl.setAttribute('border', '1');
-    var tbdy = document.createElement('tbody');
-    var tr = document.createElement('tr');
-    var th = document.createElement('th');
-    th.appendChild(document.createTextNode("Source"));
-    tr.appendChild(th);
-    th = document.createElement('th');
-    th.appendChild(document.createTextNode("Target"));
-    tr.appendChild(th);
-    th = document.createElement('th');
-    th.appendChild(document.createTextNode("SNPs"));
-    tr.appendChild(th);
-    tbdy.appendChild(tr);
-
-    if (edges){
-      for (i in edges) {
-          var tr = document.createElement('tr');
-          for (var j = 0; j < 3; j++) {
-              var td = document.createElement('td');
-              if (j==0){
-                td.appendChild(document.createTextNode(edges[i].source.id))
-              } else if (j==1) {
-                td.appendChild(document.createTextNode(edges[i].target.id))
-              } else if (j==2) {
-                td.appendChild(document.createTextNode(edges[i].dist))
-              }
-              tr.appendChild(td)
-          }
-
-          tbdy.appendChild(tr);
-      }
-    }
-    tbl.appendChild(tbdy);
-    sampleTable.appendChild(tbl);
-  }
-
-  tableCreate()
-
 
 
   ////////////////////
@@ -667,6 +602,8 @@ d3.json("data.json",function(error,data){
   }
 
 
+
+//// make the source and target point directly to the node object
   node_arr = data.nodes.map(function(d){return d.id})
   for(d in data.edges){
     data.edges[d].forEach(function(d){

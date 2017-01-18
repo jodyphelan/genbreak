@@ -26,3 +26,61 @@ function generate_legend(colour_obj,attr){
   })
   return htmlString
 }
+
+
+
+function findEdges(node,edges){
+
+  var results = edges.filter(function(d){
+    if((d.source.id==node) || (d.target.id==node)){
+      return d;
+    }
+  })
+  return results;
+}
+
+
+
+function tableCreate(div_name,node_name,tempData) {
+  edges = findEdges(node_name,tempData.edges)
+  document.getElementById(div_name).innerHTML = "";
+  var sampleTable = document.getElementById(div_name);
+
+  var tbl = document.createElement('table');
+  tbl.style.width = '100%';
+  tbl.style["margin-left"] = '0px';
+  tbl.setAttribute('border', '1');
+  var tbdy = document.createElement('tbody');
+  var tr = document.createElement('tr');
+  var th = document.createElement('th');
+  th.appendChild(document.createTextNode("Source"));
+  tr.appendChild(th);
+  th = document.createElement('th');
+  th.appendChild(document.createTextNode("Target"));
+  tr.appendChild(th);
+  th = document.createElement('th');
+  th.appendChild(document.createTextNode("SNPs"));
+  tr.appendChild(th);
+  tbdy.appendChild(tr);
+
+  if (edges){
+    for (i in edges) {
+        var tr = document.createElement('tr');
+        for (var j = 0; j < 3; j++) {
+            var td = document.createElement('td');
+            if (j==0){
+              td.appendChild(document.createTextNode(edges[i].source.id))
+            } else if (j==1) {
+              td.appendChild(document.createTextNode(edges[i].target.id))
+            } else if (j==2) {
+              td.appendChild(document.createTextNode(edges[i].dist))
+            }
+            tr.appendChild(td)
+        }
+
+        tbdy.appendChild(tr);
+    }
+  }
+  tbl.appendChild(tbdy);
+  sampleTable.appendChild(tbl);
+}
