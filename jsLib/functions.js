@@ -27,7 +27,9 @@ function generate_legend(colour_obj,attr){
   return htmlString
 }
 
-
+function isInArray(value, array) {
+  return array.indexOf(value) > -1;
+}
 
 function findEdges(node,edges){
 
@@ -39,7 +41,16 @@ function findEdges(node,edges){
   return results;
 }
 
+function edges2full(tempEdges){
+    var tempArr = []
+    var tempNewData = {nodes: [], edges: tempEdges};
+    tempEdges.forEach(function(d){
+      if (!isInArray(d.source.id,tempArr)){tempArr.push(d.source.id);tempNewData.nodes.push(d.source);}
+      if (!isInArray(d.target.id,tempArr)){tempArr.push(d.target.id);tempNewData.nodes.push(d.target);}
 
+    })
+    return tempNewData;
+}
 
 function tableCreate(div_name,node_name,tempData) {
   edges = findEdges(node_name,tempData.edges)

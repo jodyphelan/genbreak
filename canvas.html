@@ -115,17 +115,19 @@
         <p>Num SNPs: <input type="number" min="0" max="500" step="1" value="0" id="snpInput"></p>
         <p>Min Cluster Size: <input type="number" min="1" max="500" step="1" value="1" id="clusterInput"></p>
         <p><input type="text" class="input-medium" value="" id="nodeName"><button id="nodeSearch" type="button" class="btn btn-primary">Search</button></p>
-
+        <div class="checkbox"><label><input id="displayNameCheckbox" type="checkbox" value=""><strong>Display names</strong></label></div>
         <hr>
 
         <div id="timeP">Time:</div>
         <div id="sliderDiv"></div>
 
         <hr>
+        <div class="checkbox"><label><input id="jitterCheckbox" type="checkbox" value=""><strong>Jitter GPS</strong></label></div>
+        <div class="checkbox"><label><input id="mapSelectedCheckbox" type="checkbox" value=""><strong>Map selected</strong></label></div>
 
-        <p><button id="jitterButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Jitter Coordinates</button></p>
-        <p><button id="drawSelectedButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Map all</button></p>
-        <p><a id="downloadAnchorElem" style="display:none"></a><button id="downloadButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Download</button></p>
+        <hr>
+
+        <p><a id="downloadAnchorElem" style="display:none"></a><button id="downloadButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Download graph JSON</button></p>
 
         <hr>
 
@@ -145,6 +147,8 @@
   </div>
 
 <script>
+$('input:checkbox').removeAttr('checked');
+var textOn = false
 var selected_attrib = "nothing"
 var mapDrawSelected=false;
 var jitterCoordsSwitch = false;
@@ -169,6 +173,17 @@ var div = d3.select("body").append("div")
     .style("opacity", 0);
 
 
+    var graphCanvas = d3.select('#graphDiv').append('canvas')
+    .attr('width', graphWidth + 'px')
+    .attr('height', height + 'px')
+    .style('background-color', "black")
+    .node();
+
+    var context = graphCanvas.getContext('2d');
+
+    var div = d3.select("body").append("div")
+        .attr("class", "tooltip")
+        .style("opacity", 0);
 
 
 
@@ -281,17 +296,6 @@ d3.json("data.json",function(error,data){
 
 
 
-  var graphCanvas = d3.select('#graphDiv').append('canvas')
-  .attr('width', graphWidth + 'px')
-  .attr('height', height + 'px')
-  .style('background-color', "black")
-  .node();
-
-  var context = graphCanvas.getContext('2d');
-
-  var div = d3.select("body").append("div")
-      .attr("class", "tooltip")
-      .style("opacity", 0);
 
 
   var simulation = d3.forceSimulation()
@@ -354,6 +358,13 @@ d3.json("data.json",function(error,data){
         node.x =  transform.applyX(node.x);
         node.y = transform.applyY(node.y);
         tableCreate("sampleTable",node.id,tempData)
+        if (mapDrawSelected==true){
+          if (findEdges(node.id,tempData.edges).length==0){
+            mapDrawNodes({"nodes":[node],"edges":[]})
+          } else {
+            mapDrawNodes(edges2full(findEdges(node.id,tempData.edges)))
+          }
+        }
         console.log(node)
         return node;
       }
@@ -410,7 +421,15 @@ d3.json("data.json",function(error,data){
             context.arc(d.x, d.y, radius, 0, 2 * Math.PI, true);
             context.fillStyle = d.attributes[selected_attrib] ? colour_obj[selected_attrib][d.attributes[selected_attrib]]:"white"
             context.fill();
+
         });
+
+        tempData.nodes.forEach(function(d, i) {
+          if (textOn==true){
+            context.fillStyle = "white"
+            context.fillText(d.id, d.x+5, d.y-5)
+          }
+        })
 
         context.restore();
 //        transform = d3.zoomIdentity;
@@ -432,8 +451,8 @@ d3.json("data.json",function(error,data){
           cy = d.y;
         }
       });
-      dx = graphWidth/2 - cx
-      dy = height/2-cy
+      dx = graphWidth/2 - transform.k*cx
+      dy = height/2 - transform.k*cy
       transform.x = dx
       transform.y = dy
       simulationUpdate()
@@ -520,9 +539,7 @@ d3.json("data.json",function(error,data){
     }
   }
 
-  function isInArray(value, array) {
-    return array.indexOf(value) > -1;
-  }
+
 
 
 
@@ -543,34 +560,27 @@ d3.json("data.json",function(error,data){
 
   })
 
-  d3.select("#jitterButton").on("click", function() {
-    if ($(this).hasClass("active")){
-      $(this).removeClass("active")
-    } else {
-      $(this).addClass("active")
-    }
-    jitterCoordsSwitch = !jitterCoordsSwitch
-    initData()
 
-  })
-
-  d3.select("#drawSelectedButton").on("click", function() {
-    if ($(this).hasClass("active")){
-      $(this).removeClass("active")
-    } else {
-      $(this).addClass("active")
-    }
+  $("#mapSelectedCheckbox").change(function(){
+    mapG.selectAll("*").remove()
     mapDrawSelected = !mapDrawSelected
     initData()
-    if (mapDrawSelected){
-      d3.select(this).html("Map selected");
-    } else {
-      d3.select(this).html("Map all");
-    }
+  })
+
+  $("#jitterCheckbox").change(function(){
+    jitterCoordsSwitch = ! jitterCoordsSwitch
+    initData()
+  })
+
+  $("#displayNameCheckbox").change(function(){
+    textOn= !textOn
+    initData()
   })
 
 
 
+
+//////////////////////////
 
   all_node_idx = {}
   for (i in data.nodes){
