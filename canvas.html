@@ -28,11 +28,11 @@
     background-color: #dddddd;
   }
 
-  #sampleTable{
+  #area5{
     margin-bottom: 0;
   }
 
-  #mapDiv{
+  #area4{
     margin-bottom: 0;
   }
   .edge{
@@ -109,8 +109,8 @@
 
 </style>
 <body>
-  <div class="col-md-2" id="toolsDiv" style="padding-right: 0px" >
-    <div style="height: 70%">
+  <div class="col-md-2" id="col1" style="padding-right: 0px" >
+    <div id="area1" style="height: 70%">
       <div style="max-height: 100%; overflow-y: scroll;">
         <p>Num SNPs: <input type="number" min="0" max="500" step="1" value="0" id="snpInput"></p>
         <p>Min Cluster Size: <input type="number" min="1" max="500" step="1" value="1" id="clusterInput"></p>
@@ -135,11 +135,8 @@
         <select class="form-control" id="attr_select"><option></option></select>
 
         <hr>
-        <label for="analysis_type">Select attribute to colour by:</label>
-        <select class="form-control" id="analysis_type">
-          <option>Table</option>
-          <option>Graph</option>
-        </select>
+        <label for="analysis_type">Select analysis type:</label>
+        <select class="form-control" id="analysis_type"><option selected></option></select>
       </div>
     </div>
     <div style="height: 30%">
@@ -147,12 +144,13 @@
     </div>
   </div>
 
-  <div class="col-md-7" id="graphDiv"></div>
-  <div class="col-md-3", id="map_table_div",style="overflow: hidden">
-    <p id="mapDiv"></p>
-    <p id="sampleTable" style="max-height: 100px; overflow-y: scroll"></p>
+  <div class="col-md-7" id="col2">
+    <div id="area3" style="height: 100%; width: 100%"></div>
   </div>
-
+  <div class="col-md-3" id="col3" style="overflow: hidden">
+    <div id="area4" style="height: 50%;"></div>
+    <div id="area5" style="height: 50%; max-height: 50%; overflow-y: scroll"></div>
+  </div>
 <script>
 $('input:checkbox').removeAttr('checked');
 var analysis_type = "Table"
@@ -166,9 +164,10 @@ var temp_col
 var defaultNodeCol = "white",
     highlightCol = "yellow";
 
-var height = window.innerHeight;
-d3.select("#sampleTable").style("max-height",height/2)
-var graphWidth =  $("#graphDiv").width();
+//d3.select("#area5").style("max-height",height/2)
+graphDiv = "#area3"
+var graphWidth =  $(graphDiv).width();
+var height = $(graphDiv).height();
 
 var value = 0;
 var selectedDate;
@@ -181,7 +180,7 @@ var div = d3.select("body").append("div")
     .style("opacity", 0);
 
 
-    var graphCanvas = d3.select('#graphDiv').append('canvas')
+    var graphCanvas = d3.select(graphDiv).append('canvas')
     .attr('width', graphWidth + 'px')
     .attr('height', height + 'px')
     .style('background-color', "black")
@@ -211,12 +210,13 @@ d3.json("data.json",function(error,data){
 
 
   function initMap(){
-    d3.select("#mapDiv").style("width","100%").style("height","50%")
-    map = L.map('mapDiv').setView([0,0], 4);
+    mapDiv = "area4"
+
+    map = L.map(mapDiv).setView([0,0], 4);
     L.tileLayer("http://{s}.sm.mapstack.stamen.com/(toner-lite,$fff[difference],$fff[@23],$fff[hsl-saturation@20])/{z}/{x}/{y}.png").addTo(map);
 
     map._initPathRoot()
-    mapSvg = d3.select("#mapDiv").select("svg"),
+    mapSvg = d3.select("#"+mapDiv).select("svg"),
     mapG = mapSvg.append("g");
 
   }
@@ -329,6 +329,12 @@ d3.json("data.json",function(error,data){
 
   function initGraph(tempData){
 
+
+    simulation.force("center", d3.forceCenter(graphWidth / 2, height / 2))
+    .force("x", d3.forceX(graphWidth / 2).strength(0.1))
+    .force("y", d3.forceY(height / 2).strength(0.1))
+
+
     d3.select("#downloadButton").on("click",function(){
       console.log("Downloading")
       var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tempData));
@@ -365,7 +371,7 @@ d3.json("data.json",function(error,data){
       if (dx * dx + dy * dy < radius * radius*2) {
         node.x =  transform.applyX(node.x);
         node.y = transform.applyY(node.y);
-        tableCreate("sampleTable",node.id,tempData)
+        tableCreate("area5",node.id,tempData)
         if (mapDrawSelected==true){
           if (findEdges(node.id,tempData.edges).length==0){
             mapDrawNodes({"nodes":[node],"edges":[]})
@@ -476,7 +482,7 @@ d3.json("data.json",function(error,data){
 
 
   var sliderMargin = {left:10,right:10,top:10,bottom:10}
-  var toolsDivWidth =  $("#toolsDiv").width()-15;
+  var toolsDivWidth =  $("#area1").width()-15;
   var sliderWidth = toolsDivWidth - sliderMargin.left - sliderMargin.right;
   var sliderSVG = d3.select("#sliderDiv").append("svg").attr("height",20).attr("width",toolsDivWidth);
 
@@ -585,6 +591,11 @@ d3.json("data.json",function(error,data){
     initData()
   })
 
+  xx = ["Table","Graph"]
+  xx.forEach(function(d){
+    console.log(d)
+    $("#analysis_type").append("<option>"+d+"</option>")
+  })
 
   $("#attr_select").change(function(){
     console.log(this.value)
@@ -615,8 +626,8 @@ d3.json("data.json",function(error,data){
     switch(analysis_type){
       case "Graph":
           clusters = counter(graph2clusters(newData.nodes,newData.edges).map(function(d){return d.length}))
-          y = y =$("#sampleTable")
-          clusterCount2hist(clusters,"sampleTable",y.parent().height()/2 ,y.parent().width())
+          y = y =$("#area5")
+          clusterCount2hist(clusters,"area5",y.parent().height()/2 ,y.parent().width())
     }
     simulation.alpha(1).restart()
 
