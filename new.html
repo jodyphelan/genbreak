@@ -1,0 +1,237 @@
+<html>
+<meta charset="utf-8">
+<script src="jsLib/d3-force.v1.min.js"></script>
+<script src="jsLib/d3.v4.min.js"></script>
+<script src="jsLib/leaflet.js"></script>
+<link href="bootstrap-3.3.7-dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="css/leaflet.css" rel="stylesheet">
+<script src="jsLib/jquery.min.js"></script>
+<script src="jsLib/functions.js"></script>
+<script src="jsLib/palette.js"></script>
+
+<style>
+</style>
+<body>
+  <div class="col-md-2" id="col1" style="padding-right: 0px" >
+    <div id="area1" style="height: 70%">
+      <div style="max-height: 100%; overflow-y: scroll;">
+        <p>Num SNPs: <input type="number" min="0" max="500" step="1" value="0" id="snpInput"></p>
+        <p>Min Cluster Size: <input type="number" min="1" max="500" step="1" value="1" id="clusterInput"></p>
+        <p><input type="text" class="input-medium" value="" id="nodeName"><button id="nodeSearch" type="button" class="btn btn-primary">Search</button></p>
+        <div class="checkbox"><label><input id="displayNameCheckbox" type="checkbox" value=""><strong>Display names</strong></label></div>
+        <hr>
+
+        <div id="timeP">Time:</div>
+        <div id="sliderDiv"></div>
+
+        <hr>
+        <div class="checkbox"><label><input id="jitterCheckbox" type="checkbox" value=""><strong>Jitter GPS</strong></label></div>
+        <div class="checkbox"><label><input id="mapSelectedCheckbox" type="checkbox" value=""><strong>Map selected</strong></label></div>
+
+        <hr>
+
+        <p><a id="downloadAnchorElem" style="display:none"></a><button id="downloadButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Download graph JSON</button></p>
+
+        <hr>
+
+        <label for="attr_select">Select attribute to colour by:</label>
+        <select class="form-control" id="attr_select"><option></option></select>
+
+        <hr>
+        <label for="analysis_type">Select analysis type:</label>
+        <select class="form-control" id="analysis_type"><option selected></option></select>
+      </div>
+    </div>
+    <div style="height: 30%">
+      <div id="legend_div" style="max-height: 100%; overflow-y: scroll;"><hr><strong>Legend:</strong><br></div>
+    </div>
+  </div>
+
+  <div class="col-md-7" id="col2">
+    <div id="area3" style="height: 100%; width: 100%"></div>
+  </div>
+  <div class="col-md-3" id="col3" style="overflow: hidden">
+    <div id="area4" style="height: 50%;"></div>
+    <div id="area5" style="height: 50%; max-height: 50%; overflow-y: scroll"></div>
+  </div>
+
+<script>
+
+$('input:checkbox').removeAttr('checked');
+var textOn = false
+var mapDrawSelected=false;
+var jitterCoordsSwitch = false;
+var graphMain = true
+var selected_attrib = "nothing"
+var analysis_type = "Table"
+var snpCutoff = 0;
+var clusterCutoff = 1;
+var temp_col
+var defaultNodeCol = "white"
+var highlightCol = "yellow"
+var selectedDate;
+var radius = 5
+
+
+
+
+
+divs = {"graphDiv":"#area3","mapDiv":"area4"}
+function initAreas(){
+
+  console.log("dsdj")
+  var graphWidth =  $(divs.graphDiv).width();
+  var graphHeight = $(divs.graphDiv).height();
+
+  var graphCanvas = d3.select(divs.graphDiv).append('canvas')
+  .attr("id","graphCanvas")
+  .attr('width', graphWidth + 'px')
+  .attr('height', graphHeight + 'px')
+  .style('background-color', "black")
+  .node();
+
+  map = L.map(divs.mapDiv).setView([0,0], 4);
+  L.tileLayer("http://{s}.sm.mapstack.stamen.com/(toner-lite,$fff[difference],$fff[@23],$fff[hsl-saturation@20])/{z}/{x}/{y}.png").addTo(map);
+
+  map._initPathRoot()
+  mapSvg = d3.select("#"+divs.mapDiv).select("svg"),
+  mapG = mapSvg.append("g").attr("id","mapG");
+
+
+}
+
+function initGraph(tempData){
+  graphCanvas = d3.select("#graphCanvas").node()
+
+  var context = graphCanvas.node().getContext('2d');
+
+  var graphWidth =  $(divs.graphDiv).width();
+  var graphHeight = $(divs.graphDiv).height();
+
+
+  var simulation = d3.forceSimulation()
+                .force("center", d3.forceCenter(graphWidth / 2, graphHeight / 2))
+                .force("x", d3.forceX(graphWidth / 2).strength(0.1))
+                .force("y", d3.forceY(graphHeight / 2).strength(0.1))
+                .force("charge", d3.forceManyBody().strength(-50))
+                .force("link", d3.forceLink().strength(1).id(function(d) { return d.id; }))
+                .alphaTarget(0)
+                .alphaDecay(0.05)
+
+  var transform = d3.zoomIdentity;
+
+  function zoomed() {
+    transform = d3.event.transform;
+      console.log(transform)
+    simulationUpdate();
+  }
+
+  d3.select(graphCanvas)
+//      .call(d3.drag().subject(dragsubject).on("start", dragstarted).on("drag", dragged).on("end",dragended))
+      .call(d3.zoom().scaleExtent([1 / 10, 8]).on("zoom", zoomed))
+/*
+      function dragsubject() {
+        var i,
+        x = transform.invertX(d3.event.x),
+        y = transform.invertY(d3.event.y),
+        dx,
+        dy;
+        for (i = tempData.nodes.length - 1; i >= 0; --i) {
+          node = tempData.nodes[i];
+          dx = x - node.x;
+          dy = y - node.y;
+      //      console.log("a2+b2=c2")
+      //      console.log(dx*dx+"+"+dy*dy+"="+radius*radius)
+          if (dx * dx + dy * dy < radius * radius*2) {
+            node.x =  transform.applyX(node.x);
+            node.y = transform.applyY(node.y);
+            tableCreate("area5",node.id,tempData)
+            if (mapDrawSelected==true){
+              if (findEdges(node.id,tempData.edges).length==0){
+                mapDrawNodes({"nodes":[node],"edges":[]})
+              } else {
+                mapDrawNodes(edges2full(findEdges(node.id,tempData.edges)))
+              }
+            }
+            console.log(node)
+            return node;
+          }
+        }
+      }
+
+
+      function dragstarted() {
+        if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+        d3.event.subject.fx = transform.invertX(d3.event.x);
+        d3.event.subject.fy = transform.invertY(d3.event.y);
+      }
+
+      function dragged() {
+        d3.event.subject.fx = transform.invertX(d3.event.x);
+        d3.event.subject.fy = transform.invertY(d3.event.y);
+
+      }
+
+      function dragended() {
+        if (!d3.event.active) simulation.alphaTarget(0);
+        d3.event.subject.fx = null;
+        d3.event.subject.fy = null;
+      }
+
+        simulation.nodes(tempData.nodes)
+                  .on("tick",simulationUpdate);
+
+        simulation.force("link")
+                  .links(tempData.edges);
+
+
+
+        function simulationUpdate(){
+          context.save();
+
+          context.clearRect(0, 0, graphWidth, height);
+          context.translate(transform.x, transform.y);
+          context.scale(transform.k, transform.k);
+
+          tempData.edges.forEach(function(d) {
+                context.beginPath();
+                context.moveTo(d.source.x, d.source.y);
+                context.lineTo(d.target.x, d.target.y);
+                context.strokeStyle = "white"
+                context.stroke();
+
+            });
+
+            // Draw the nodes
+            tempData.nodes.forEach(function(d, i) {
+
+                context.beginPath();
+                context.arc(d.x, d.y, radius, 0, 2 * Math.PI, true);
+                context.fillStyle = d.attributes[selected_attrib] ? colour_obj[selected_attrib][d.attributes[selected_attrib]]:"white"
+                context.fill();
+
+            });
+
+            tempData.nodes.forEach(function(d, i) {
+              if (textOn==true){
+                context.fillStyle = "white"
+                context.fillText(d.id, d.x+5, d.y-5)
+              }
+            })
+
+            context.restore();
+      //        transform = d3.zoomIdentity;
+        }
+*/
+}
+
+
+
+initAreas()
+d3.json("data.json", function(err,data){
+  console.log(data)
+  initGraph({"nodes":data.nodes,"edges":data.edges[5]})
+})
+
+</script>
+</html>
