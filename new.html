@@ -10,6 +10,53 @@
 <script src="jsLib/palette.js"></script>
 
 <style>
+table {
+  font-family: arial, sans-serif;
+  border-collapse: collapse;
+  width: 100%;
+  margin-left: 10px;
+
+}
+
+td, th {
+  border: 1px solid #dddddd;
+  text-align: left;
+  padding: 8px;
+}
+
+  tr:nth-child(even) {
+  background-color: #dddddd;
+}
+
+.track,
+.track-inset,
+.track-overlay {
+  stroke-linecap: round;
+}
+
+.track {
+  stroke: #000;
+  stroke-opacity: 0.3;
+  stroke-width: 10px;
+}
+
+.track-inset {
+  stroke: #ddd;
+  stroke-width: 8px;
+}
+
+.track-overlay {
+  pointer-events: stroke;
+  stroke-width: 50px;
+  cursor: crosshair;
+}
+
+.handle {
+  fill: #fff;
+  stroke: #000;
+  stroke-opacity: 0.5;
+  stroke-width: 1.25px;
+}
 </style>
 <body>
   <div class="col-md-2" id="col1" style="padding-right: 0px" >
@@ -19,6 +66,7 @@
         <p>Min Cluster Size: <input type="number" min="1" max="500" step="1" value="1" id="clusterInput"></p>
         <p><input type="text" class="input-medium" value="" id="nodeName"><button id="nodeSearch" type="button" class="btn btn-primary">Search</button></p>
         <div class="checkbox"><label><input id="displayNameCheckbox" type="checkbox" value=""><strong>Display names</strong></label></div>
+        <button id="switchViews" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Switch Views</button>
         <hr>
 
         <div id="timeP">Time:</div>
@@ -30,7 +78,8 @@
 
         <hr>
 
-        <p><a id="downloadAnchorElem" style="display:none"></a><button id="downloadButton" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Download graph JSON</button></p>
+        <p><a id="downloadAnchorElem" style="display:none"></a><button id="downloadJSON" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Download graph JSON</button></p>
+        <p><a id="downloadAnchorElem" style="display:none"></a><button id="downloadImage" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Download graph PNG</button></p>
 
         <hr>
 
@@ -63,7 +112,7 @@ var mapDrawSelected=false;
 var jitterCoordsSwitch = false;
 var graphMain = true
 var selected_attrib = "nothing"
-var analysis_type = "Table"
+var analysis_type = "nothing"
 var snpCutoff = 0;
 var clusterCutoff = 1;
 var temp_col
@@ -73,52 +122,50 @@ var selectedDate;
 var radius = 5
 
 
-
-
-
-divs = {"graphDiv":"#area3","mapDiv":"area4"}
+divs = {"graph":"#area3","map":"#area4","analysis":"#area5"}
 function initAreas(){
 
-  console.log("dsdj")
-  var graphWidth =  $(divs.graphDiv).width();
-  var graphHeight = $(divs.graphDiv).height();
+  d3.select(divs.graph).selectAll("*").remove()
+  d3.select(divs.map).selectAll("*").remove()
+  var graphWidth =  $(divs.graph).width();
+  var graphHeight = $(divs.graph).height();
 
-  var graphCanvas = d3.select(divs.graphDiv).append('canvas')
-  .attr("id","graphCanvas")
+  d3.select(divs.graph).append('canvas')
   .attr('width', graphWidth + 'px')
   .attr('height', graphHeight + 'px')
   .style('background-color', "black")
   .node();
 
-  map = L.map(divs.mapDiv).setView([0,0], 4);
+  d3.select(divs.map).append("div").attr("id","mapDiv").style("height","100%")
+  map = L.map("mapDiv").setView([0,0], 4);
   L.tileLayer("http://{s}.sm.mapstack.stamen.com/(toner-lite,$fff[difference],$fff[@23],$fff[hsl-saturation@20])/{z}/{x}/{y}.png").addTo(map);
 
   map._initPathRoot()
-  mapSvg = d3.select("#"+divs.mapDiv).select("svg"),
+  mapSvg = d3.select(divs.map).select("svg"),
   mapG = mapSvg.append("g").attr("id","mapG");
-
 
 }
 
+var simulation = d3.forceSimulation()
+              .force("charge", d3.forceManyBody().strength(-50))
+              .force("link", d3.forceLink().strength(1).id(function(d) { return d.id; }))
+              .alphaTarget(0)
+              .alphaDecay(0.05)
+var transform = d3.zoomIdentity;
+
+//////////// Function to Draw Nodes on graph ///////////
+
 function initGraph(tempData){
-  graphCanvas = d3.select("#graphCanvas").node()
 
-  var context = graphCanvas.node().getContext('2d');
+  var graphCanvas = d3.select(divs.graph).select("canvas").node()
+  var graphWidth = graphCanvas.width
+  var graphHeight = graphCanvas.height
 
-  var graphWidth =  $(divs.graphDiv).width();
-  var graphHeight = $(divs.graphDiv).height();
+  simulation.force("center", d3.forceCenter(graphWidth / 2, graphHeight / 2))
+    .force("x", d3.forceX(graphWidth / 2).strength(0.1))
+    .force("y", d3.forceY(graphHeight / 2).strength(0.1))
 
-
-  var simulation = d3.forceSimulation()
-                .force("center", d3.forceCenter(graphWidth / 2, graphHeight / 2))
-                .force("x", d3.forceX(graphWidth / 2).strength(0.1))
-                .force("y", d3.forceY(graphHeight / 2).strength(0.1))
-                .force("charge", d3.forceManyBody().strength(-50))
-                .force("link", d3.forceLink().strength(1).id(function(d) { return d.id; }))
-                .alphaTarget(0)
-                .alphaDecay(0.05)
-
-  var transform = d3.zoomIdentity;
+  var context = graphCanvas.getContext('2d');
 
   function zoomed() {
     transform = d3.event.transform;
@@ -127,9 +174,9 @@ function initGraph(tempData){
   }
 
   d3.select(graphCanvas)
-//      .call(d3.drag().subject(dragsubject).on("start", dragstarted).on("drag", dragged).on("end",dragended))
+      .call(d3.drag().subject(dragsubject).on("start", dragstarted).on("drag", dragged).on("end",dragended))
       .call(d3.zoom().scaleExtent([1 / 10, 8]).on("zoom", zoomed))
-/*
+
       function dragsubject() {
         var i,
         x = transform.invertX(d3.event.x),
@@ -140,12 +187,12 @@ function initGraph(tempData){
           node = tempData.nodes[i];
           dx = x - node.x;
           dy = y - node.y;
-      //      console.log("a2+b2=c2")
-      //      console.log(dx*dx+"+"+dy*dy+"="+radius*radius)
           if (dx * dx + dy * dy < radius * radius*2) {
             node.x =  transform.applyX(node.x);
             node.y = transform.applyY(node.y);
-            tableCreate("area5",node.id,tempData)
+            if (analysis_type=="Table"){
+              tableCreate(divs.analysis,node.id,tempData)
+            }
             if (mapDrawSelected==true){
               if (findEdges(node.id,tempData.edges).length==0){
                 mapDrawNodes({"nodes":[node],"edges":[]})
@@ -153,12 +200,10 @@ function initGraph(tempData){
                 mapDrawNodes(edges2full(findEdges(node.id,tempData.edges)))
               }
             }
-            console.log(node)
             return node;
           }
         }
       }
-
 
       function dragstarted() {
         if (!d3.event.active) simulation.alphaTarget(0.3).restart();
@@ -180,16 +225,12 @@ function initGraph(tempData){
 
         simulation.nodes(tempData.nodes)
                   .on("tick",simulationUpdate);
-
         simulation.force("link")
                   .links(tempData.edges);
 
-
-
         function simulationUpdate(){
           context.save();
-
-          context.clearRect(0, 0, graphWidth, height);
+          context.clearRect(0, 0, graphWidth, graphHeight);
           context.translate(transform.x, transform.y);
           context.scale(transform.k, transform.k);
 
@@ -199,38 +240,308 @@ function initGraph(tempData){
                 context.lineTo(d.target.x, d.target.y);
                 context.strokeStyle = "white"
                 context.stroke();
-
             });
 
             // Draw the nodes
             tempData.nodes.forEach(function(d, i) {
-
                 context.beginPath();
                 context.arc(d.x, d.y, radius, 0, 2 * Math.PI, true);
                 context.fillStyle = d.attributes[selected_attrib] ? colour_obj[selected_attrib][d.attributes[selected_attrib]]:"white"
                 context.fill();
-
             });
-
+            // Draw names
             tempData.nodes.forEach(function(d, i) {
               if (textOn==true){
                 context.fillStyle = "white"
                 context.fillText(d.id, d.x+5, d.y-5)
               }
             })
-
             context.restore();
-      //        transform = d3.zoomIdentity;
         }
-*/
+
+}
+
+
+//////////// Function to Draw Nodes on map ///////////
+
+
+function mapDrawNodes(tempData){
+  mapG = d3.select(divs.map).select("g")
+  mapG.selectAll("*").remove()
+  var mapEdges =  mapG.selectAll(".edge").data(tempData.edges).enter()
+                      .append("line")
+                      .attr("class","edge")
+                      .style("stroke","white")
+                      .style("stroke-width",1)
+
+  var mapNodes =  mapG.selectAll(".node").data(tempData.nodes).enter()
+                      .append("circle")
+                      .attr("class","node")
+                      .attr("r", 10)
+                      .style("fill", function(d){
+                        return d.attributes[selected_attrib] ? colour_obj[selected_attrib][d.attributes[selected_attrib]]:"white"
+                      })
+                      .style("opacity",0.3)
+
+
+  map.on("viewreset",updateMap);
+
+
+  updateMap();
+
+  function updateMap() {
+
+
+
+    function jitter(){
+      jit = {};
+      jit.lat = ((Math.random() * 2) - 1)*(map.layerPointToLatLng([0,0]).lat - map.layerPointToLatLng([50,50]).lat);
+      jit.lng = ((Math.random() * 2) - 1)*(map.layerPointToLatLng([0,0]).lng - map.layerPointToLatLng([50,50]).lng);
+      return jit;
+    }
+
+    if (jitterCoordsSwitch==true){
+      mapNodes.attr("transform",
+      function(d) {
+
+        if ((!d.jitterCoords) || (map._zoom != d.zoomLevel)){
+          var jit = jitter()
+          d.jitterCoords = [d.gps[0]+jit.lat,d.gps[1]+jit.lng];
+          d.zoomLevel = map._zoom;
+        }
+        return "translate("+
+          map.latLngToLayerPoint(d.jitterCoords).x + ","+
+          map.latLngToLayerPoint(d.jitterCoords).y +")";
+        }
+      )
+      mapEdges
+        .attr("x1",function(d){return map.latLngToLayerPoint(d.source.jitterCoords).x})
+        .attr("x2",function(d){return map.latLngToLayerPoint(d.target.jitterCoords).x})
+        .attr("y1",function(d){return map.latLngToLayerPoint(d.source.jitterCoords).y})
+        .attr("y2",function(d){return map.latLngToLayerPoint(d.target.jitterCoords).y});
+    } else {
+      mapNodes.attr("transform",
+        function(d) {
+        return "translate("+
+          map.latLngToLayerPoint(d.gps).x + ","+
+          map.latLngToLayerPoint(d.gps).y +")";
+        }
+      )
+      mapEdges
+        .attr("x1",function(d){return map.latLngToLayerPoint(d.source.gps).x})
+        .attr("x2",function(d){return map.latLngToLayerPoint(d.target.gps).x})
+        .attr("y1",function(d){return map.latLngToLayerPoint(d.source.gps).y})
+        .attr("y2",function(d){return map.latLngToLayerPoint(d.target.gps).y});
+    }
+
+  }
 }
 
 
 
-initAreas()
+
+
+function switchAreas(tempData){
+  var temp1 = divs.graph
+  var temp2 = divs.map
+  divs.graph = temp2
+  divs.map = temp1
+  simulation.alphaTarget(0).restart()
+  initAreas()
+  initGraph(tempData)
+  mapDrawNodes(tempData)
+
+}
+
+
 d3.json("data.json", function(err,data){
-  console.log(data)
-  initGraph({"nodes":data.nodes,"edges":data.edges[5]})
+  //////// set up dates //////////
+  data.nodes.forEach(function(d){
+      d.date = new Date(d.date)
+  })
+  //////// set up node-index hash //////////
+  all_node_idx = {}
+  for (i in data.nodes){
+    all_node_idx[data.nodes[i].id] = i
+  }
+  //// make the source and target point directly to the node object
+  node_arr = data.nodes.map(function(d){return d.id})
+  for(d in data.edges){
+    data.edges[d].forEach(function(d){
+      d.source = data.nodes[node_arr.indexOf(d.source)]
+      d.target = data.nodes[node_arr.indexOf(d.target)]
+    })
+  }
+
+    console.log(data)
+
+  ////////////// SET UP COLOURS //////////////////
+
+  colour_obj = {}
+  for (attr in data.nodes[0].attributes){
+    colour_obj[attr] = getCols(uniq(data.nodes.map(function(d){return d.attributes[attr]})))
+  }
+  console.log(colour_obj)
+
+  Object.keys(colour_obj).forEach(function(d){
+    $("#attr_select").append("<option>"+d+"</option>")
+  })
+
+
+
+  //////// Set up time slider /////////////
+
+  var sliderMargin = {left:10,right:10,top:10,bottom:10}
+  var toolsDivWidth =  $("#area1").width()-15;
+  var sliderWidth = toolsDivWidth - sliderMargin.left - sliderMargin.right;
+  var sliderSVG = d3.select("#sliderDiv").append("svg").attr("height",20).attr("width",toolsDivWidth);
+
+
+  var sliderG = sliderSVG.append("g")
+                        .attr("class","slider")
+                        .attr("transform", "translate(" + sliderMargin.left + "," + sliderMargin.top + ")");
+
+
+  var sortedDates = data.nodes.map(function(d){if (d.date){return d.date}})
+                    .sort(function(a,b){
+                      return a - b;
+                    });
+  var minDate = sortedDates[0]
+  var maxDate = sortedDates[sortedDates.length-1]
+  selectedDate = minDate;
+  var timeString = minDate.getDate() + "-" + minDate.getMonth() + "-" + minDate.getFullYear()
+  $("#timeP").html("Date: " + timeString)
+
+  var timeScale =  d3.scaleTime()
+      .domain([minDate,maxDate])
+      .range([0,sliderWidth])
+      .clamp(true);
+
+  sliderG.append("line")
+      .attr("class", "track")
+      .attr("x1", timeScale.range()[0])
+      .attr("x2", timeScale.range()[1])
+    .select(function() { return this.parentNode.appendChild(this.cloneNode(true)); })
+      .attr("class", "track-inset")
+    .select(function() { return this.parentNode.appendChild(this.cloneNode(true)); })
+      .attr("class", "track-overlay")
+      .call(d3.drag()
+          .on("start.interrupt", function() { sliderG.interrupt(); })
+          .on("start", function(){
+            simulation.alphaTarget(0.5).restart();
+            moveSlider(timeScale.invert(d3.event.x))
+          })
+          .on("drag", function() {
+            moveSlider(timeScale.invert(d3.event.x));
+          })
+          .on("end", function(){
+            simulation.alphaTarget(0);
+          })
+        );
+
+  var handle = sliderG.insert("circle", ".track-overlay")
+      .attr("class", "handle")
+      .attr("r", 9);
+
+  function moveSlider(h) {
+    handle.attr("cx", timeScale(h));
+    value=h;
+    if (selectedDate!=h){
+      selectedDate = h
+      var timeString = h.getDate() + "-" + h.getMonth() + "-" + h.getFullYear()
+      $("#timeP").html("Date: " + timeString)
+      initData();
+    }
+  }
+
+
+
+//////// Input control /////////
+d3.select("#snpInput").on("input", function() {
+  snpCutoff = this.value;
+  initData()
+
+})
+
+d3.select("#clusterInput").on("input", function() {
+  clusterCutoff = this.value;
+  initData()
+
+})
+
+$("#mapSelectedCheckbox").change(function(){
+  mapG.selectAll("*").remove()
+  mapDrawSelected = !mapDrawSelected
+  initData()
+})
+
+$("#jitterCheckbox").change(function(){
+  jitterCoordsSwitch = ! jitterCoordsSwitch
+  initData()
+})
+
+$("#displayNameCheckbox").change(function(){
+  textOn= !textOn
+  initData()
+})
+
+xx = ["Table","Graph"]
+xx.forEach(function(d){
+  console.log(d)
+  $("#analysis_type").append("<option>"+d+"</option>")
+})
+
+$("#attr_select").change(function(){
+  console.log(this.value)
+  selected_attrib = this.value
+  $("#legend_div").html(generate_legend(colour_obj,this.value))
+  initData()
+})
+
+$("#analysis_type").change(function(){
+  analysis_type = this.value
+  initData()
+})
+
+$("#switchViews").click(function(){
+  console.log("Switching")
+  switchAreas({"nodes":data.nodes,"edges":data.edges[5]})
+})
+
+
+
+
+
+function initData(){
+
+
+  newData = subsetData(data,selectedDate,clusterCutoff,snpCutoff)
+  initGraph(newData)
+  if (mapDrawSelected==false){
+    mapDrawNodes(newData)
+  }
+  switch(analysis_type){
+    case "Graph":
+        clusters = counter(graph2clusters(newData.nodes,newData.edges).map(function(d){return d.length}))
+        clusterCount2hist(clusters,divs.analysis,$(divs.analysis).height() ,$(divs.analysis).width())
+        break
+    case "Table":
+        d3.select(divs.analysis).selectAll("*").remove()
+        break
+  }
+  simulation.alpha(1).restart()
+
+}
+
+
+
+
+
+
+
+  initAreas()
+  initData()
+
 })
 
 </script>
