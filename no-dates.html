@@ -69,10 +69,6 @@ td, th {
         <button id="switchViews" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Switch Views</button>
         <hr>
 
-        <div id="timeP">Time:</div>
-        <div id="sliderDiv"></div>
-
-        <hr>
         <div class="checkbox"><label><input id="jitterCheckbox" type="checkbox" value=""><strong>Jitter GPS</strong></label></div>
         <p>Jitter Factor: <input type="number" min="0" step="0.1" value="1" id="jitterInput"></p>
         <div class="checkbox"><label><input id="mapSelectedCheckbox" type="checkbox" value=""><strong>Map selected</strong></label></div>
@@ -426,74 +422,6 @@ d3.json("data.json", function(err,data){
 
 
 
-  //////// Set up time slider /////////////
-
-  var sliderMargin = {left:10,right:10,top:10,bottom:10}
-  var toolsDivWidth =  $("#area1").width()-15;
-  var sliderWidth = toolsDivWidth - sliderMargin.left - sliderMargin.right;
-  var sliderSVG = d3.select("#sliderDiv").append("svg").attr("height",20).attr("width",toolsDivWidth);
-
-
-  var sliderG = sliderSVG.append("g")
-                        .attr("class","slider")
-                        .attr("transform", "translate(" + sliderMargin.left + "," + sliderMargin.top + ")");
-
-
-  var sortedDates = data.nodes.map(function(d){if (d.date){return d.date}})
-                    .sort(function(a,b){
-                      return a - b;
-                    });
-  var minDate = sortedDates[0]
-  var maxDate = sortedDates[sortedDates.length-1]
-  selectedDate = minDate;
-  var timeString = minDate.getDate() + "-" + minDate.getMonth() + "-" + minDate.getFullYear()
-  $("#timeP").html("Date: " + timeString)
-
-  var timeScale =  d3.scaleTime()
-      .domain([minDate,maxDate])
-      .range([0,sliderWidth])
-      .clamp(true);
-
-  sliderG.append("line")
-      .attr("class", "track")
-      .attr("x1", timeScale.range()[0])
-      .attr("x2", timeScale.range()[1])
-    .select(function() { return this.parentNode.appendChild(this.cloneNode(true)); })
-      .attr("class", "track-inset")
-    .select(function() { return this.parentNode.appendChild(this.cloneNode(true)); })
-      .attr("class", "track-overlay")
-      .call(d3.drag()
-          .on("start.interrupt", function() { sliderG.interrupt(); })
-          .on("start", function(){
-            simulation.alphaTarget(0.5).restart();
-            moveSlider(timeScale.invert(d3.event.x))
-          })
-          .on("drag", function() {
-            moveSlider(timeScale.invert(d3.event.x));
-          })
-          .on("end", function(){
-            simulation.alphaTarget(0);
-          })
-        );
-
-  var handle = sliderG.insert("circle", ".track-overlay")
-      .attr("class", "handle")
-      .attr("r", 9);
-
-  function moveSlider(h) {
-    handle.attr("cx", timeScale(h));
-    value=h;
-    if (selectedDate!=h){
-      selectedDate = h
-      var timeString = h.getDate() + "-" + h.getMonth() + "-" + h.getFullYear()
-      $("#timeP").html("Date: " + timeString)
-      initData();
-    }
-
-
-
-  }
-
   //////// Input control /////////
 
   d3.select("#jitterInput").on("input", function() {
@@ -588,7 +516,7 @@ $("#download_json").click(function(){
 function initData(){
 
 
-  newData = subsetData(data,selectedDate,clusterCutoff,snpCutoff)
+  newData = subsetData_noDate(data,clusterCutoff,snpCutoff)
   initGraph(newData)
   if (mapDrawSelected==false){
     mapDrawNodes(newData)

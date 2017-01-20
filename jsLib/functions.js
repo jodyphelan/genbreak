@@ -102,6 +102,7 @@ function tableCreate(div_name,node_name,tempData) {
 
 
 function graph2clusters(nodes,edges){
+  console.log(nodes)
   clusters = []
   node_ids = {}
   for (j in edges){
@@ -127,6 +128,7 @@ function graph2clusters(nodes,edges){
     }
   }
   node_ids = uniq(Object.keys(node_ids))
+
   nodes.forEach(function(d){
     if (!isInArray(d.id,node_ids)){
       clusters.push([d.id])
@@ -206,7 +208,37 @@ function subsetData(data,selectedDate,clusterCutoff,snpCutoff){
     temp_nodes=[]
     temp_node_ids=[]
 
-    clusters = graph2clusters({"nodes":temp_nodes,"edges":temp_edges})
+    clusters = graph2clusters(temp_nodes,temp_edges)
+    clusters = clusters.filter(function(d){return d.length>=clusterCutoff})
+      temp_node_ids = []
+      temp_nodes = []
+    for (i in clusters){
+      for (j in clusters[i]){
+        temp_node_ids.push(clusters[i][j])
+        temp_nodes.push(data.nodes[all_node_idx[clusters[i][j]]])
+      }
+    }
+    temp_edges = temp_edges.filter(function(d){
+      return isInArray(d.source.id,temp_node_ids) && isInArray(d.target.id,temp_node_ids)
+    })
+  }
+  newData = {"nodes":temp_nodes,"edges":temp_edges}
+  return newData
+
+}
+
+
+
+function subsetData_noDate(data,clusterCutoff,snpCutoff){
+  temp_nodes = data.nodes
+  temp_node_ids = temp_nodes.map(function(d){return d.id})
+  temp_edges = data.edges[snpCutoff].filter(function(d){return isInArray(d.source.id,temp_node_ids) && isInArray(d.target.id,temp_node_ids)})
+
+  if (clusterCutoff>1){
+    temp_nodes=[]
+    temp_node_ids=[]
+
+    clusters = graph2clusters(temp_nodes,temp_edges)
     clusters = clusters.filter(function(d){return d.length>=clusterCutoff})
       temp_node_ids = []
       temp_nodes = []

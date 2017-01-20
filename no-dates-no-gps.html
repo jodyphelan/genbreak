@@ -69,10 +69,6 @@ td, th {
         <button id="switchViews" type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">Switch Views</button>
         <hr>
 
-        <div id="timeP">Time:</div>
-        <div id="sliderDiv"></div>
-
-        <hr>
         <div class="checkbox"><label><input id="jitterCheckbox" type="checkbox" value=""><strong>Jitter GPS</strong></label></div>
         <p>Jitter Factor: <input type="number" min="0" step="0.1" value="1" id="jitterInput"></p>
         <div class="checkbox"><label><input id="mapSelectedCheckbox" type="checkbox" value=""><strong>Map selected</strong></label></div>
@@ -149,13 +145,6 @@ function initAreas(){
   .style('background-color', "black")
   .node();
 
-  d3.select(divs.map).append("div").attr("id","mapDiv").style("height","100%")
-  map = L.map("mapDiv").setView([0,0], 4);
-  L.tileLayer("http://{s}.sm.mapstack.stamen.com/(toner-lite,$fff[difference],$fff[@23],$fff[hsl-saturation@20])/{z}/{x}/{y}.png").addTo(map);
-
-  map._initPathRoot()
-  mapSvg = d3.select(divs.map).select("svg"),
-  mapG = mapSvg.append("g").attr("id","mapG");
 
 }
 
@@ -298,96 +287,6 @@ function initGraph(tempData){
 //////////// Function to Draw Nodes on map ///////////
 
 
-function mapDrawNodes(tempData){
-  console.log("mapDrawNodes()")
-  mapG = d3.select(divs.map).select("g")
-  mapG.selectAll("*").remove()
-  var mapEdges =  mapG.selectAll(".edge").data(tempData.edges).enter()
-                    .append("line")
-                    .attr("class","edge")
-                    .style("stroke","white")
-                    .style("stroke-width",1)
-
-  var mapNodes =  mapG.selectAll(".node").data(tempData.nodes).enter()
-                    .append("circle")
-                    .attr("class","node")
-                    .attr("r", 10)
-                    .style("fill", function(d){
-                      return d.attributes[selected_attrib] ? colour_obj[selected_attrib][d.attributes[selected_attrib]]:"white"
-                    })
-                    .style("opacity",0.3)
-
-
-  map.on("viewreset",updateMap);
-
-
-  updateMap();
-
-  function updateMap() {
-    console.log("updateMap()")
-
-
-  function jitter(){
-    jit = {};
-    jit.lat = ((Math.random() * 2) - 1)*(map.layerPointToLatLng([0,0]).lat - map.layerPointToLatLng([50,50]).lat)*jitterFactor;
-    jit.lng = ((Math.random() * 2) - 1)*(map.layerPointToLatLng([0,0]).lng - map.layerPointToLatLng([50,50]).lng)*jitterFactor;
-    return jit;
-  }
-
-    if (jitterCoordsSwitch==true){
-      console.log("switch==true")
-      mapNodes.attr("transform",
-      function(d) {
-
-        if ((!d.jitterCoords) || (map._zoom != d.zoomLevel)){
-          var jit = jitter()
-          console.log(jit)
-          d.jitterCoords = [d.gps[0]+jit.lat,d.gps[1]+jit.lng];
-          d.zoomLevel = map._zoom;
-        }
-        return "translate("+
-          map.latLngToLayerPoint(d.jitterCoords).x + ","+
-          map.latLngToLayerPoint(d.jitterCoords).y +")";
-        }
-      )
-      mapEdges
-        .attr("x1",function(d){return map.latLngToLayerPoint(d.source.jitterCoords).x})
-        .attr("x2",function(d){return map.latLngToLayerPoint(d.target.jitterCoords).x})
-        .attr("y1",function(d){return map.latLngToLayerPoint(d.source.jitterCoords).y})
-        .attr("y2",function(d){return map.latLngToLayerPoint(d.target.jitterCoords).y});
-    } else {
-      mapNodes.attr("transform",
-        function(d) {
-        return "translate("+
-          map.latLngToLayerPoint(d.gps).x + ","+
-          map.latLngToLayerPoint(d.gps).y +")";
-        }
-      )
-      mapEdges
-        .attr("x1",function(d){return map.latLngToLayerPoint(d.source.gps).x})
-        .attr("x2",function(d){return map.latLngToLayerPoint(d.target.gps).x})
-        .attr("y1",function(d){return map.latLngToLayerPoint(d.source.gps).y})
-        .attr("y2",function(d){return map.latLngToLayerPoint(d.target.gps).y});
-    }
-  }
-}
-
-
-
-
-
-function switchAreas(tempData){
-  var temp1 = divs.graph
-  var temp2 = divs.map
-  divs.graph = temp2
-  divs.map = temp1
-  simulation.alphaTarget(0).restart()
-  initAreas()
-  initGraph(current_data)
-  mapDrawNodes(current_data)
-}
-
-
 d3.json("data.json", function(err,data){
   ///// set max snp value //////
   document.getElementById("snpInput").max = d3.max(Object.keys(data.edges).map(function(d){return +d}))
@@ -426,74 +325,6 @@ d3.json("data.json", function(err,data){
 
 
 
-  //////// Set up time slider /////////////
-
-  var sliderMargin = {left:10,right:10,top:10,bottom:10}
-  var toolsDivWidth =  $("#area1").width()-15;
-  var sliderWidth = toolsDivWidth - sliderMargin.left - sliderMargin.right;
-  var sliderSVG = d3.select("#sliderDiv").append("svg").attr("height",20).attr("width",toolsDivWidth);
-
-
-  var sliderG = sliderSVG.append("g")
-                        .attr("class","slider")
-                        .attr("transform", "translate(" + sliderMargin.left + "," + sliderMargin.top + ")");
-
-
-  var sortedDates = data.nodes.map(function(d){if (d.date){return d.date}})
-                    .sort(function(a,b){
-                      return a - b;
-                    });
-  var minDate = sortedDates[0]
-  var maxDate = sortedDates[sortedDates.length-1]
-  selectedDate = minDate;
-  var timeString = minDate.getDate() + "-" + minDate.getMonth() + "-" + minDate.getFullYear()
-  $("#timeP").html("Date: " + timeString)
-
-  var timeScale =  d3.scaleTime()
-      .domain([minDate,maxDate])
-      .range([0,sliderWidth])
-      .clamp(true);
-
-  sliderG.append("line")
-      .attr("class", "track")
-      .attr("x1", timeScale.range()[0])
-      .attr("x2", timeScale.range()[1])
-    .select(function() { return this.parentNode.appendChild(this.cloneNode(true)); })
-      .attr("class", "track-inset")
-    .select(function() { return this.parentNode.appendChild(this.cloneNode(true)); })
-      .attr("class", "track-overlay")
-      .call(d3.drag()
-          .on("start.interrupt", function() { sliderG.interrupt(); })
-          .on("start", function(){
-            simulation.alphaTarget(0.5).restart();
-            moveSlider(timeScale.invert(d3.event.x))
-          })
-          .on("drag", function() {
-            moveSlider(timeScale.invert(d3.event.x));
-          })
-          .on("end", function(){
-            simulation.alphaTarget(0);
-          })
-        );
-
-  var handle = sliderG.insert("circle", ".track-overlay")
-      .attr("class", "handle")
-      .attr("r", 9);
-
-  function moveSlider(h) {
-    handle.attr("cx", timeScale(h));
-    value=h;
-    if (selectedDate!=h){
-      selectedDate = h
-      var timeString = h.getDate() + "-" + h.getMonth() + "-" + h.getFullYear()
-      $("#timeP").html("Date: " + timeString)
-      initData();
-    }
-
-
-
-  }
-
   //////// Input control /////////
 
   d3.select("#jitterInput").on("input", function() {
@@ -518,16 +349,7 @@ d3.select("#clusterInput").on("input", function() {
 
 })
 
-$("#mapSelectedCheckbox").change(function(){
-  mapG.selectAll("*").remove()
-  mapDrawSelected = !mapDrawSelected
-  initData()
-})
 
-$("#jitterCheckbox").change(function(){
-  jitterCoordsSwitch = ! jitterCoordsSwitch
-  initData()
-})
 
 $("#displayNameCheckbox").change(function(){
   textOn= !textOn
@@ -588,7 +410,7 @@ $("#download_json").click(function(){
 function initData(){
 
 
-  newData = subsetData(data,selectedDate,clusterCutoff,snpCutoff)
+  newData = subsetData_noDate(data,clusterCutoff,snpCutoff)
   initGraph(newData)
   if (mapDrawSelected==false){
     mapDrawNodes(newData)
